@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📰 News TTS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            loadNews();
+        });
+
+        function loadNews() {
+            fetch('/news')  // ✅ Corrected API endpoint
+            .then(response => response.json())
+            .then(newsItems => {
+                const newsContainer = document.getElementById("newsContainer");
+                newsContainer.innerHTML = "";
+                newsItems.forEach((item, index) => {
+                    let newsCard = document.createElement("div");
+                    newsCard.className = "p-6 rounded-xl shadow-lg bg-white hover:scale-105 transition-all duration-300 cursor-pointer";
+                    let safeText = item.content.replace(/"/g, '&quot;').replace(/'/g, "&#39;");  // ✅ Escape text safely
+                    newsCard.innerHTML = `
+                        <h3 class="text-xl font-bold text-gray-900">${item.title}</h3>
+                        <p class="text-gray-700 mt-2">${item.content}</p>
+                        <div class="mt-4 flex gap-2">
+                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'en', ${index})">English</button>
+                            <button class="px-4 py-2 bg-green-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'hi', ${index})">Hindi</button>
+                            <button class="px-4 py-2 bg-purple-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'bn', ${index})">Bengali</button>
+                            <button class="px-4 py-2 bg-red-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'fr', ${index})">French</button>
+                        </div>
+                    `;
+                    newsContainer.appendChild(newsCard);
+                });
+            })
+            .catch(error => console.error("Error loading news:", error));
+        }
+
+        function translateAndSpeak(text, lang, index) {
+            fetch('/translate_tts', {  
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text, lang: lang, index: index })  // ✅ Sends correct index
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.audio_url) {
+                    let audioPlayer = document.getElementById("audioPlayer");
+                    audioPlayer.src = data.audio_url;
+                    setTimeout(() => {
+                        audioPlayer.play();
+                    }, 500);
+                } else {
+                    alert("Error generating audio");
+                }
+            })
+            .catch(error => console.error("Fetch Error:", error));
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div class="container mx-auto p-6">
+        <h1 class="text-4xl font-extrabold text-gray-900 text-center">📰 News TTS</h1>
+        <div id="newsContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6"></div>
+        <div class="mt-8 flex justify-center">
+            <audio id="audioPlayer" controls class="w-full max-w-md shadow-lg rounded-lg"></audio>
+        </div>
+    </div>
+</body>
+</html>
