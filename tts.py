@@ -13,7 +13,6 @@ os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
 SUPPORTED_LANGUAGES = ["en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml"]
 
-# Initialize Google Cloud Translation Client
 translate_client = translate.Client()
 
 def translate_text(text, target_lang):
