@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template, jsonify, send_from_directory
+from google.cloud import translate_v2 as translate
 from gtts import gTTS
-from deep_translator import GoogleTranslator
 import os
 import json
 
@@ -11,17 +11,20 @@ NEWS_FILE = os.path.join(STATIC_FOLDER, "news.json")
 
 os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
+SUPPORTED_LANGUAGES = ["en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml"]
+
+# Initialize Google Cloud Translation Client
+translate_client = translate.Client()
+
 def translate_text(text, target_lang):
-    """Uses deep_translator for translation without requiring an API key."""
     try:
-        translated = GoogleTranslator(source="auto", target=target_lang).translate(text)
-        return translated
+        result = translate_client.translate(text, target_language=target_lang)
+        return result["translatedText"]
     except Exception as e:
         print("Translation Error:", str(e))
         return None
 
 def text_to_speech(text, lang, news_index):
-    """Converts text to speech and caches the result."""
     try:
         news_folder = os.path.join(AUDIO_FOLDER, f"news_{news_index}")
         os.makedirs(news_folder, exist_ok=True)
@@ -46,7 +49,6 @@ def index():
 
 @app.route('/news')
 def get_news():
-    """Fetches news from the JSON file."""
     try:
         with open(NEWS_FILE, 'r', encoding='utf-8') as file:
             news_data = json.load(file)
@@ -54,22 +56,32 @@ def get_news():
     except Exception as e:
         return jsonify({"error": "Could not load news", "details": str(e)}), 500
 
+@app.route('/translate', methods=['POST'])
+def translate():
+    data = request.json
+    text = data.get("text", "").strip()
+    lang = data.get("lang", "en")
+
+    if not text or lang not in SUPPORTED_LANGUAGES:
+        return jsonify({"error": "Invalid text or unsupported language"}), 400
+
+    translated_text = translate_text(text, lang)
+    if not translated_text:
+        return jsonify({"error": "Translation failed"}), 500
+
+    return jsonify({"translated_text": translated_text})
+
 @app.route('/translate_tts', methods=['POST'])
 def translate_tts():
-    """Translates text and converts it to speech."""
     data = request.json
     text = data.get("text", "").strip()
     lang = data.get("lang", "en")
     news_index = data.get("index", -1)
 
-    if not text or news_index == -1:
-        return jsonify({"error": "Invalid text or index"}), 400
+    if not text or lang not in SUPPORTED_LANGUAGES or news_index == -1:
+        return jsonify({"error": "Invalid text, language, or index"}), 400
 
-    translated_text = translate_text(text, lang) if lang != "en" else text
-    if not translated_text:
-        return jsonify({"error": "Translation failed"}), 500
-
-    audio_url = text_to_speech(translated_text, lang, news_index)
+    audio_url = text_to_speech(text, lang, news_index)
     if audio_url is None:
         return jsonify({"error": "Failed to generate audio"}), 500
 

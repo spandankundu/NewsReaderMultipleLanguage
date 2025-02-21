@@ -11,7 +11,7 @@
         });
 
         function loadNews() {
-            fetch('/news')  // ✅ Corrected API endpoint
+            fetch('/news')
             .then(response => response.json())
             .then(newsItems => {
                 const newsContainer = document.getElementById("newsContainer");
@@ -19,15 +19,22 @@
                 newsItems.forEach((item, index) => {
                     let newsCard = document.createElement("div");
                     newsCard.className = "p-6 rounded-xl shadow-lg bg-white hover:scale-105 transition-all duration-300 cursor-pointer";
-                    let safeText = item.content.replace(/"/g, '&quot;').replace(/'/g, "&#39;");  // ✅ Escape text safely
                     newsCard.innerHTML = `
                         <h3 class="text-xl font-bold text-gray-900">${item.title}</h3>
-                        <p class="text-gray-700 mt-2">${item.content}</p>
+                        <p id="news-text-${index}" class="text-gray-700 mt-2">${item.content}</p>
                         <div class="mt-4 flex gap-2">
-                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'en', ${index})">English</button>
-                            <button class="px-4 py-2 bg-green-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'hi', ${index})">Hindi</button>
-                            <button class="px-4 py-2 bg-purple-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'bn', ${index})">Bengali</button>
-                            <button class="px-4 py-2 bg-red-500 text-white rounded-lg" onclick="translateAndSpeak('${safeText}', 'fr', ${index})">French</button>
+                            <select id="language-${index}" class="px-4 py-2 border rounded-lg bg-gray-100" onchange="handleTranslation(${index})">
+                                <option value="en">English</option>
+                                <option value="hi">Hindi</option>
+                                <option value="bn">Bengali</option>
+                                <option value="ta">Tamil</option>
+                                <option value="te">Telugu</option>
+                                <option value="mr">Marathi</option>
+                                <option value="gu">Gujarati</option>
+                                <option value="kn">Kannada</option>
+                                <option value="ml">Malayalam</option>
+                            </select>
+                            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg" onclick="speak(${index})">🔊 Speak</button>
                         </div>
                     `;
                     newsContainer.appendChild(newsCard);
@@ -36,25 +43,52 @@
             .catch(error => console.error("Error loading news:", error));
         }
 
-        function translateAndSpeak(text, lang, index) {
-            fetch('/translate_tts', {  
+        function handleTranslation(index) {
+            let text = document.getElementById(`news-text-${index}`).textContent;
+            let lang = document.getElementById(`language-${index}`).value;
+            fetch('/translate', {  
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text, lang: lang, index: index })  // ✅ Sends correct index
+                body: JSON.stringify({ text: text, lang: lang })  
             })
             .then(response => response.json())
             .then(data => {
-                if (data.audio_url) {
-                    let audioPlayer = document.getElementById("audioPlayer");
-                    audioPlayer.src = data.audio_url;
-                    setTimeout(() => {
-                        audioPlayer.play();
-                    }, 500);
+                if (data.translated_text) {
+                    document.getElementById(`news-text-${index}`).textContent = data.translated_text;
                 } else {
-                    alert("Error generating audio");
+                    alert("Translation error");
                 }
             })
-            .catch(error => console.error("Fetch Error:", error));
+            .catch(error => console.error("Translation Error:", error));
+        }
+
+        function speak(index) {
+            let lang = document.getElementById(`language-${index}`).value;
+            
+            // First translate and then generate TTS
+            handleTranslation(index);
+            
+            setTimeout(() => {
+                let text = document.getElementById(`news-text-${index}`).textContent;
+                fetch('/translate_tts', {  
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, lang: lang, index: index })  
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.audio_url) {
+                        let audioPlayer = document.getElementById("audioPlayer");
+                        audioPlayer.src = data.audio_url;
+                        setTimeout(() => {
+                            audioPlayer.play();
+                        }, 500);
+                    } else {
+                        alert("Error generating audio");
+                    }
+                })
+                .catch(error => console.error("Fetch Error:", error));
+            }, 1000); // Delay to ensure translation is complete before TTS
         }
     </script>
 </head>
