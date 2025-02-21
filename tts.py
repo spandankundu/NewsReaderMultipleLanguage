@@ -13,6 +13,8 @@ os.makedirs(AUDIO_FOLDER, exist_ok=True)
 
 SUPPORTED_LANGUAGES = ["en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml"]
 
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/etc/secrets/Translator-Keys"
+
 translate_client = translate.Client()
 
 def translate_text(text, target_lang):
